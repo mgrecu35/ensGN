@@ -21,6 +21,7 @@ graupCoeff=np.polyfit(np.log10(sdsu.tablep2.gwc[:272]),\
 
 
 cfadZ=np.zeros((150,40),float)
+cfadZms=np.zeros((150,40),float)
 piaKaL=[]
 zsfcKaL=[]
 zsfcKa_mL=[]
@@ -30,6 +31,7 @@ pRateL=[]
 wL=[]
 zKa_tL=[]
 attKaL=[]
+zKa_msL=[]
 for f in fs[:]:
     fh=Dataset(f)
     z=fh['z'][:]
@@ -62,17 +64,34 @@ for f in fs[:]:
         press=np.interp(h,z[:45],prs[:45,i1,i2])
         wv1=np.zeros((150),float)
         
-        zka_m ,zka_t, attka, dzka_m,piaka,dpiaka = \
-            sdsu.reflectivity(rwc1,swc1,wv1,dn1,temp,press,dr)
-        stop
+        zka_m ,zka_t, attka, dzka_m,piaka,dpiaka, \
+            kext,salb,asym,pRate\
+            =sdsu.reflectivity(rwc1,swc1,wv1,dn1,temp,press,dr)
+        #stop
+        dr=0.125
+        noms=0
+        alt=400.
+        freq=35.5
+        nonorm=0
+        theta=0.35
+        zms = sdsu.multiscatterf(kext[::-1],salb[::-1],asym[::-1],\
+                                 zka_t[::-1],dr,noms,alt,\
+                                 theta,freq,nonorm)
+
+        zms=zms[::-1]
         piaKaL.append(piaka)
         zKaL.append(zka_m)
         zKa_tL.append(zka_t)
         attKaL.append(attka)
+        zKa_msL.append(zms)
+        pRateL.append(pRate)
         for k in range(149,-1,-1):
             if zka_m[k]>0 and zka_m[k]<40 and swc1[k]+rwc1[k]>0.01:
                 i0=int(zka_m[k])
                 cfadZ[k,i0]+=1
+            if zms[k]>0 and zms[k]<40 and swc1[k]+rwc1[k]>0.01:
+                i0=int(zms[k])
+                cfadZms[k,i0]+=1
         
         #plt.scatter(zKa_m,h,s=1)
 
@@ -86,14 +105,31 @@ for f in fs[:]:
     #nt+=a[0].shape[0]
     #stop
 plt.pcolormesh(cfadZ,cmap='jet',norm=matplotlib.colors.LogNorm())
+plt.figure()
+plt.pcolormesh(cfadZms,cmap='jet',norm=matplotlib.colors.LogNorm())
 attKaL=np.array(attKaL)
 zKa_tL=np.array(zKa_tL)
-stop
 zKaL=np.array(zKaL)
-zKaL[zKaL<0]=0
+#zKaL[zKaL<0]=0
 pRateL=np.array(pRateL)
 
-from minisom import MiniSom
+import xarray as xr
+
+zKa_obs=xr.DataArray(zKaL)
+zKa_true=xr.DataArray(zKa_tL)
+zKa_ms=xr.DataArray(zKa_msL)
+pRate=xr.DataArray(pRateL)
+attKa=xr.DataArray(attKaL)
+
+d=xr.Dataset({"zKa_obs":zKa_obs,"zKa_true":zKa_true,"zKa_ms":zKa_ms,\
+              "pRate":pRate,"attKa":attKa})
+d.to_netcdf("simulatedObs_SAM.nc")
+
+stop
+#zka_obs=fh["zka_m"][:]
+#zka_true=fh["zka_t"][:]
+#attka=fh["attka"][:]
+
 #from minisom import MiniSom
 
 n1=40

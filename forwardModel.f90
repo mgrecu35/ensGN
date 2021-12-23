@@ -1,5 +1,5 @@
 subroutine reflectivity(rwc1,swc1,wv1,dn1,temp,press,dr,nz,zka_m,&
-     zka_out,attka_out,dzka_m, piaka, dpiaka)
+     zka_out,attka_out,dzka_m, piaka, dpiaka, kext, salb, asym, pRate)
   use tablep2
   use tables2
   implicit none
@@ -18,8 +18,9 @@ subroutine reflectivity(rwc1,swc1,wv1,dn1,temp,press,dr,nz,zka_m,&
   real, intent(out) :: zka_out(nz),attka_out(nz)
   integer :: ireturn
   real :: absair, abswv, piaKaAtm
-  real :: kext(nz), salb(nz), asym(nz)
-  real :: salbr,asymr,salbs,asyms,kextr,kexts
+  real,intent(out) :: kext(nz), salb(nz), asym(nz), pRate(nz)
+  real :: salbr1,asymr1,salbs1,asyms1,kextr1,kexts1
+  real :: kextt, salbt, asymt
   graupCoeff=(/13.63604457, 28.58466471/)
 
   piaka=0
@@ -36,12 +37,21 @@ subroutine reflectivity(rwc1,swc1,wv1,dn1,temp,press,dr,nz,zka_m,&
      call GasabsR98(35.5,temp(k),wv1(k),press(k),absair,abswv,ireturn)
      !print*, absair+abswv
      piaKaAtm=piaKaAtm+(absair+abswv)*4.343*0.125*2
+     kextt=(absair+abswv)
+     salbt=0
+     asymt=0
+     pRate(k)=0
      if(rwc1(k)>1e-2) then
         call bisection2(rwc(1:289),289,rwc1(k),ibin)
+        pRate(k)=pRate(k)+rainrate(ibin)
         zkar_1=zkar(ibin)
         attkar_1=attkar(ibin)
-        salbr = salbTable(ibin,4,1)*n1
-        asymr = asymTable(ibin,4,1)
+        salbr1 = salbTable(ibin,4,1)*n1
+        asymr1 = asymTable(ibin,4,1)
+        kextr1 = attkar_1/4.343
+        kextt = kextt + kextr1
+        salbt = salbt + kextr1*salbr1
+        asymt = asymt + kextr1*salbr1*asymr1
         call bisection2(rwc(1:289),289,1.1*rwc1(k),ibin)
         if (ibin<289) then
            zkar_11=zkar(ibin+1)
@@ -68,9 +78,15 @@ subroutine reflectivity(rwc1,swc1,wv1,dn1,temp,press,dr,nz,zka_m,&
         endif
         if(n1>50) n1=50
         call bisection2(gwc(1:253),253,swc1(k)/n1,ibin)
+        pRate(k)=pRate(k)+snowrate(ibin)*n1
         zkas_1=zkag(ibin)+10*log10(n1)
-        salbS = salbTableG(ibin,4,1)
-        asymS = asymTableG(ibin,4,1)
+        salbS1 = salbTableG(ibin,4,1)
+        asymS1 = asymTableG(ibin,4,1)
+        kextS1 = attkag(ibin)*n1/4.343
+        kextt = kextt + kexts1
+        salbt = salbt + kexts1*salbs1
+        asymt = asymt + kexts1*salbs1*asyms1
+        
         attkas_1=attkag(ibin)*n1
         call bisection2(gwc(1:253),253,(1.1*swc1(k))/n1,ibin)
         zkas_11=zkag(ibin)+10*log10(n1)
@@ -115,8 +131,15 @@ subroutine reflectivity(rwc1,swc1,wv1,dn1,temp,press,dr,nz,zka_m,&
         !enddo
      endif
      attka_out(k)=attkar_1+attkas_1
+     kext(k)=kextt
+     salb(k)=salbt/kextt
+     if (salbt>1e-8) then
+        asym(k)=asymt/salbt
+     else
+        asym(k)=0
+     end if
      !10 continue
   end do
-  print*, piaKaAtm
+  !  print*, piaKaAtm
   !stop
 end subroutine reflectivity
