@@ -7,37 +7,57 @@ from bisectm import *
 import numpy as np
 fh=Dataset("simulatedObs_SAM.nc")
 
-zka_obs=fh["zka_m"][:]
-zka_true=fh["zka_t"][:]
-attka=fh["attka"][:]
-
-
+zka_obs=fh["zKa_obs"][:]
+zka_true=fh["zKa_true"][:]
+attka=fh["attKa"][:]
+pRate=fh["pRate"][:]
+#d={"zKa":zKaL,"zKu":zKuL,"zKuC":zKucL,"pRate":pRateDL,"nodes":[-80,0,26]}
+import pickle
+d=pickle.load(open("OK_MCS_profiles.pklz","rb"))
+zKa=d['zKa']
+zKa=np.array(zKa)
+zKa[zKa<0]=0
+zka_obs_p=zka_obs.copy()[:,::-1]
+zka_obs_p[zka_obs_p<0]=0
+plt.plot(zka_obs_p.mean(axis=0)[37:37+106],np.arange(106)-80)
+plt.plot(zKa.mean(axis=0),np.arange(106)-80)
+    
+plt.ylim(26,-80)
+#stop
 from sklearn import preprocessing
 scaler_obs  = preprocessing.StandardScaler()
 scaler_ture  = preprocessing.StandardScaler()
-zka_obs0=zka_obs.copy()
-zka_obs0[zka_obs0<0]=0
-zka_obs1 = scaler_obs.fit_transform(zka_obs0[:,10:100])
-zka_true_sc = scaler_obs.fit_transform(attka[:,0:100])
+zka_obs0=zka_obs_p.copy()
+#zka_obs0[zka_obs0<0]=0
+zka_obs1 = scaler_obs.fit_transform(zka_obs0[:,37:37+80])
+zkas=scaler_obs.transform(zKa[:,:80])
+#zka_true_sc = scaler_obs.fit_transform(attka[:,0:100])
 
 from sklearn.decomposition import pca
 zpca_obs = pca.PCA()
 zpca_obs.fit(zka_obs1)
 
-zpca_true = pca.PCA(n_components=7)
-zpca_true.fit(zka_true_sc)
+#zpca_true = pca.PCA(n_components=7)
+#zpca_true.fit(zka_true_sc)
 
 pca_obs=zpca_obs.transform(zka_obs1)
-pca_true=zpca_true.transform(zka_true_sc)
+pca_dpr=zpca_obs.transform(zkas[:,:])
+
+
+pRateDPR=np.array(d['pRate'])[:,-1]
+
+
+#pca_true=zpca_true.transform(zka_true_sc)
 from sklearn.model_selection import train_test_split
 X_train, X_test, \
     y_train, y_test \
-    = train_test_split(pca_obs[:,0:7], range(5342), \
+    = train_test_split(pca_obs[:,0:7], pRate[:,0], \
                        test_size=0.33, random_state=42)
 from sklearn import neighbors
 n_neighbors=20
 knn = neighbors.KNeighborsRegressor(n_neighbors, weights='distance')
-y_ = knn.fit(X_train, pca_true[y_train,:]).predict(X_test)
+y_ = knn.fit(X_train, y_train).predict(X_test)
+ydpr=knn.predict(pca_dpr[:,0:7])
 stop
 
 covZZ=np.cov(zka_true.T)

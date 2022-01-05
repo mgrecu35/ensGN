@@ -15,6 +15,7 @@ nt=0
 R=287
 zKuL=[]
 h=125/2.+np.arange(150)*125
+h1=0.+np.arange(76)*250
 
 graupCoeff=np.polyfit(np.log10(sdsu.tablep2.gwc[:272]),\
                       sdsu.tablep2.zkag[:272],1)
@@ -32,7 +33,15 @@ wL=[]
 zKa_tL=[]
 attKaL=[]
 zKa_msL=[]
-for f in fs[:]:
+#stop1
+umu=np.cos(0.0/180*np.pi)
+fisot=2.7
+tbL=[]
+tb_L=[]
+sfcRainL=[]
+xL=[]
+jacobL=[]
+for f in fs[:2]:
     fh=Dataset(f)
     z=fh['z'][:]
     qr=fh["plw"][:]
@@ -47,6 +56,7 @@ for f in fs[:]:
     gwc=qg*rho*1e3
     qv=fh['QV'][0,:,:,:]
     wv=qv*rho
+    
     #plt.figure(figsize=(8,11))
     
     for i1,i2 in zip(a[0],a[1]):
@@ -61,13 +71,17 @@ for f in fs[:]:
         rwc1=np.interp(h,z[:45],rwc[:45,i1,i2])
         swc1=np.interp(h,z[:45],gwc[:45,i1,i2])
         temp=np.interp(h,z[:45],T[:45,i1,i2])
+        temp1=np.interp(h1,z[:45],T[:45,i1,i2])
         press=np.interp(h,z[:45],prs[:45,i1,i2])
         wv1=np.zeros((150),float)
         
-        zka_m ,zka_t, attka, dzka_m,piaka,dpiaka, \
-            kext,salb,asym,pRate\
-            =sdsu.reflectivity(rwc1,swc1,wv1,dn1,temp,press,dr)
+        zka_m ,zka_t, attka, piaka, \
+            kext,salb,asym,kext_,salb_,asym_,pRate\
+            =sdsu.reflectivity_2(rwc1,swc1,wv1,dn1,temp,press,dr)
+
         #stop
+        if zka_m[40:50].min()<15:
+            continue
         dr=0.125
         noms=0
         alt=400.
@@ -77,7 +91,68 @@ for f in fs[:]:
         zms = sdsu.multiscatterf(kext[::-1],salb[::-1],asym[::-1],\
                                  zka_t[::-1],dr,noms,alt,\
                                  theta,freq,nonorm)
+        kext1=np.zeros((75),float)
+        salb1=np.zeros((75),float)
+        asym1=np.zeros((75),float)
+        for k in range(75):
+            kext1[k]=kext[2*k:2*k+2].mean()
+            salb1[k]=salb[2*k:2*k+2].mean()
+            asym1[k]=asym[2*k:2*k+2].mean()
 
+        kext1_=np.zeros((75),float)
+        salb1_=np.zeros((75),float)
+        asym1_=np.zeros((75),float)
+        for k in range(75):
+            kext1_[k]=kext_[2*k:2*k+2].mean()
+            salb1_[k]=salb_[2*k:2*k+2].mean()
+            asym1_[k]=asym_[2*k:2*k+2].mean()
+        emis=0.85+0.01*np.random.rand()
+        ebar=emis
+        lambert=1
+        salb1[salb1>0.99]=0.99
+        tb = sdsu.radtran(umu,temp1[0],temp1,h1/1000.,kext1,salb1,asym1,\
+                          fisot,emis,ebar,lambert)
+        #tb_ = sdsu.radtran(umu,temp1[0],temp1,h1/1000.,kext1_,salb1_,asym1_,\
+        #                  fisot,emis,ebar,lambert)
+        #stop
+        jacob1=[]
+        for k in range(150):
+            if rwc1[k]>0.01 or swc1[k]>0.01:
+                rwc11=rwc1.copy()
+                swc11=swc1.copy()
+                if rwc1[k]>0.01:
+                    rwc11[k]=rwc1[k]*(1+0.1)
+                if swc1[k]>0.01:
+                    swc11[k]=swc1[k]*(1+0.1)
+                zkag_m ,zkag_t, attkag, piakag, \
+                    kextg,salbg,asymg,kext_,salb_,asym_,pRate1\
+                    =sdsu.reflectivity_2(rwc11,swc11,wv1,dn1,temp,press,dr)
+                kext1=np.zeros((75),float)
+                salb1=np.zeros((75),float)
+                asym1=np.zeros((75),float)
+                for k1 in range(75):
+                    kext1[k1]=kextg[2*k1:2*k1+2].mean()
+                    salb1[k1]=salbg[2*k1:2*k1+2].mean()
+                    asym1[k1]=asymg[2*k1:2*k1+2].mean()
+                tbg_ = sdsu.radtran(umu,temp1[0],temp1,h1/1000.,\
+                                   kext1,salb1,asym1,\
+                                   fisot,emis,ebar,lambert)
+                g=(tbg_-tb)/(pRate1[k]-pRate[k])
+                if g==g:
+                    jacob1.append(g)
+                else:
+                    jacob1.append(0)
+                #stop
+            else:
+                jacob1.append(0.)
+        if tb!=tb:
+            print('FNY')
+            stop
+            continue
+        tbL.append(tb)
+        #tb_L.append(tb_)
+        jacobL.append(jacob1)
+        #stop
         zms=zms[::-1]
         piaKaL.append(piaka)
         zKaL.append(zka_m)
@@ -85,6 +160,10 @@ for f in fs[:]:
         attKaL.append(attka)
         zKa_msL.append(zms)
         pRateL.append(pRate)
+        sfcRainL.append(pRate[0])
+        x1=list(pRate)
+        x1.append(emis)
+        xL.append(x1)
         for k in range(149,-1,-1):
             if zka_m[k]>0 and zka_m[k]<40 and swc1[k]+rwc1[k]>0.01:
                 i0=int(zka_m[k])
@@ -104,6 +183,7 @@ for f in fs[:]:
     #plt.colorbar()
     #nt+=a[0].shape[0]
     #stop
+#stop
 plt.pcolormesh(cfadZ,cmap='jet',norm=matplotlib.colors.LogNorm())
 plt.figure()
 plt.pcolormesh(cfadZms,cmap='jet',norm=matplotlib.colors.LogNorm())
@@ -120,12 +200,63 @@ zKa_true=xr.DataArray(zKa_tL)
 zKa_ms=xr.DataArray(zKa_msL)
 pRate=xr.DataArray(pRateL)
 attKa=xr.DataArray(attKaL)
+tb35=xr.DataArray(tbL)
+#d=xr.Dataset({"zKa_obs":zKa_obs,"zKa_true":zKa_true,"zKa_ms":zKa_ms,\
+#              "pRate":pRate,"attKa":attKa,"tb35":tb35})
+#d.to_netcdf("simulatedObs_SAM.nc")
 
-d=xr.Dataset({"zKa_obs":zKa_obs,"zKa_true":zKa_true,"zKa_ms":zKa_ms,\
-              "pRate":pRate,"attKa":attKa})
-d.to_netcdf("simulatedObs_SAM.nc")
+xL=np.array(xL)
+
+from sklearn.cluster import KMeans
+from sklearn.datasets import make_blobs
+
+plt.figure(figsize=(12, 12))
+
+n_samples = 1500
+random_state = 170
+zKa0=zKaL.copy()
+zKa0[zKa0<0]=0
+nc=10
+kmean = KMeans(n_clusters=nc, random_state=random_state).fit(zKa0)
+tbL=np.array(tbL)
+covL=[]
+jacobL=np.array(jacobL)
+def pinverse(pRate):
+    u,s,vt=np.linalg.svd(pRate,full_matrices=False)
+    print(u.shape)
+    print(s.shape)
+    print(vt.shape)
+    nc=10
+    u1=u[:,:nc]
+    vt1=vt[:nc,:]
+    inv1=np.diag(1/s[:nc])
+    pinv=vt1.T@inv1@u1.T
+    bapp=u1@np.diag(s[:nc])@vt1
+    return pinv,bapp
+
+xL=np.array(xL)
+for i in range(nc):
+    a=np.nonzero(kmean.labels_==i)
+    cov1=np.cov(tbL[a],xL[a[0],:].T)
+   
+    vard=np.array([v for v in np.diag(cov1[1:,1:])])
+    p1,bapp=pinverse(cov1[1:,1:])
+    ht=p1@cov1[0,1:]
+    B=cov1[1:,1:]
+    kgain=bapp@ht/(4+ht.T@bapp@ht)
+    ht2=jacobL[a[0],:].mean(axis=0)
+    kgain2=bapp[:-1,:-1]@ht2/(4+ht2.T@bapp[:-1,:-1]@ht2)
+    #plt.plot(cov1[0,1:]/(vard+1),h/1000)
+    if len(a[0])>60:
+        plt.figure()
+        plt.plot(cov1[0,1:-1]/(4+cov1[0,0]),h/1000)
+        plt.plot(kgain[:-1],h/1000)
+        plt.plot(kgain2[:],h/1000)
+        print((1+ht.T@bapp@ht)/(4+cov1[0,0]))
+        plt.ylim(0,10)
 
 stop
+#stop
 #zka_obs=fh["zka_m"][:]
 #zka_true=fh["zka_t"][:]
 #attka=fh["attka"][:]
