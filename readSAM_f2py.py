@@ -41,7 +41,7 @@ tb_L=[]
 sfcRainL=[]
 xL=[]
 jacobL=[]
-for f in fs[:2]:
+for f in fs[:]:
     fh=Dataset(f)
     z=fh['z'][:]
     qr=fh["plw"][:]
@@ -106,7 +106,7 @@ for f in fs[:2]:
             kext1_[k]=kext_[2*k:2*k+2].mean()
             salb1_[k]=salb_[2*k:2*k+2].mean()
             asym1_[k]=asym_[2*k:2*k+2].mean()
-        emis=0.85+0.01*np.random.rand()
+        emis=0.85+0.1*np.random.rand()
         ebar=emis
         lambert=1
         salb1[salb1>0.99]=0.99
@@ -201,9 +201,13 @@ zKa_ms=xr.DataArray(zKa_msL)
 pRate=xr.DataArray(pRateL)
 attKa=xr.DataArray(attKaL)
 tb35=xr.DataArray(tbL)
-#d=xr.Dataset({"zKa_obs":zKa_obs,"zKa_true":zKa_true,"zKa_ms":zKa_ms,\
-#              "pRate":pRate,"attKa":attKa,"tb35":tb35})
-#d.to_netcdf("simulatedObs_SAM.nc")
+piaKa=xr.DataArray(piaKaL)
+xL=xr.DataArray(xL,dims=['dim_0','dim_11'])
+jacob=xr.DataArray(jacobL,dims=['dim_0','dim_1'])
+d=xr.Dataset({"zKa_obs":zKa_obs,"zKa_true":zKa_true,"zKa_ms":zKa_ms,\
+              "pRate":pRate,"attKa":attKa,"tb35":tb35, "piaKa":piaKa,"xL":xL,\
+              "jacob":jacob})
+d.to_netcdf("simulatedObs_SAM.nc")
 
 xL=np.array(xL)
 
@@ -216,7 +220,7 @@ n_samples = 1500
 random_state = 170
 zKa0=zKaL.copy()
 zKa0[zKa0<0]=0
-nc=10
+nc=40
 kmean = KMeans(n_clusters=nc, random_state=random_state).fit(zKa0)
 tbL=np.array(tbL)
 covL=[]
