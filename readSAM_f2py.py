@@ -115,7 +115,7 @@ for f in fs[:]:
         #tb_ = sdsu.radtran(umu,temp1[0],temp1,h1/1000.,kext1_,salb1_,asym1_,\
         #                  fisot,emis,ebar,lambert)
         #stop
-        jacob1=[]
+        jacob1=np.zeros((150,151),float)
         for k in range(150):
             if rwc1[k]>0.01 or swc1[k]>0.01:
                 rwc11=rwc1.copy()
@@ -124,9 +124,14 @@ for f in fs[:]:
                     rwc11[k]=rwc1[k]*(1+0.1)
                 if swc1[k]>0.01:
                     swc11[k]=swc1[k]*(1+0.1)
-                zkag_m ,zkag_t, attkag, piakag, \
+                zkag_m ,zkag_tg, attkag, piakag, \
                     kextg,salbg,asymg,kext_,salb_,asym_,pRate1\
                     =sdsu.reflectivity_2(rwc11,swc11,wv1,dn1,temp,press,dr)
+
+                zms_g = sdsu.multiscatterf(kextg[::-1],salbg[::-1],asymg[::-1],\
+                                           zkag_tg[::-1],dr,noms,alt,\
+                                           theta,freq,nonorm)
+                
                 kext1=np.zeros((75),float)
                 salb1=np.zeros((75),float)
                 asym1=np.zeros((75),float)
@@ -139,12 +144,18 @@ for f in fs[:]:
                                    fisot,emis,ebar,lambert)
                 g=(tbg_-tb)/(pRate1[k]-pRate[k])
                 if g==g:
-                    jacob1.append(g)
+                    jacob1[k,-1]=g
+                    jacob1[k,:-1]=(zms_g-zms)/(pRate1[k]-pRate[k])
                 else:
-                    jacob1.append(0)
+                    jacob1[k,-1]=0
+                    jacob1[k,:-1]=0
                 #stop
             else:
-                jacob1.append(0.)
+                jacob1[k,-1]=0
+                jacob1[k,:-1]=0
+        a2=np.nonzero(jacob1!=jacob1)
+        if len(a2[0])>0:
+            stop
         if tb!=tb:
             print('FNY')
             stop
@@ -203,7 +214,7 @@ attKa=xr.DataArray(attKaL)
 tb35=xr.DataArray(tbL)
 piaKa=xr.DataArray(piaKaL)
 xL=xr.DataArray(xL,dims=['dim_0','dim_11'])
-jacob=xr.DataArray(jacobL,dims=['dim_0','dim_1'])
+jacob=xr.DataArray(jacobL,dims=['dim_0','dim_1','dim_11'])
 d=xr.Dataset({"zKa_obs":zKa_obs,"zKa_true":zKa_true,"zKa_ms":zKa_ms,\
               "pRate":pRate,"attKa":attKa,"tb35":tb35, "piaKa":piaKa,"xL":xL,\
               "jacob":jacob})

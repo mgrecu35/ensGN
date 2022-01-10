@@ -27,7 +27,7 @@ n_samples = 1500
 random_state = 170
 zKa0=zKa
 zKa0[zKa0<0]=0
-nc=3
+nc=20
 pRate=fh["pRate"][:]
 
 from sklearn.model_selection import train_test_split
@@ -89,9 +89,9 @@ for i in range(nc):
     pRateClassL.append(pRate[ind_test,:].mean(axis=0))
     print(np.corrcoef(piaKa_train[a],tbL_train[a])[0,1])
     if len(a[0])>50:
-        continue
+        #continue
         plt.figure()
-        plt.plot(kgain,h/1000)
+        #plt.plot(kgain,h/1000)
         plt.plot(kgain[:-1],h/1000)
         plt.plot(kgain2[:],h/1000)
         #print((1+ht.T@bapp@ht)/(4+cov1[0,0]))

@@ -19,9 +19,11 @@ from sklearn.datasets import make_blobs
 plt.figure(figsize=(12, 12))
 
 zKa=fh["zKa_obs"][:]
+zKa_true=fh["zKa_true"][:]
+attKa=fh["attKa"][:]
 tbL=fh["tb35"][:]
 xL=fh["xL"][:]
-jacobL=fh["jacob"][:]
+#jacobL=fh["jacob"][:]
 piaKa=fh["piaKa"][:]
 n_samples = 1500
 random_state = 170
@@ -30,6 +32,46 @@ zKa0[zKa0<0]=0
 nc=3
 pRate=fh["pRate"][:]
 
+a=np.nonzero(zKa_true[:,50]>0)
+pZ_snow=np.polyfit(np.log(pRate[a[0],50]),zKa_true[a[0],50],1)
+att_snow=np.polyfit(np.log(pRate[a[0],50]),np.log(attKa[a[0],50]),1)
+a=np.nonzero(zKa_true[:,0]>0)
+pZ_rain=np.polyfit(np.log(pRate[a[0],0]),zKa_true[a[0],0],1)
+att_rain=np.polyfit(np.log(pRate[a[0],0]),np.log(attKa[a[0],0]),1)
+h=125/2.+np.arange(150)*125
+plt.plot(zKa0.mean(axis=0),h)
+plt.plot(zKa0.mean(axis=0)[:40],h[:40],'*')
+fint=np.interp(range(150),[0,35,40,150],[1,1,0,0])
+zL=[]
+dr=0.125
+for i,pRate1 in enumerate(pRate[:,:]):
+    snowRate=(1-fint)*pRate1
+    zSnow=pZ_snow[0]*np.log(snowRate+1e-3)+pZ_snow[1]
+    attSnow=np.exp(att_snow[0]*np.log(snowRate+1e-3)+att_snow[1])
+    rainRate=fint*pRate1
+    zRain=pZ_rain[0]*np.log(rainRate+1e-3)+pZ_rain[1]
+    zTot=10*np.log10(10**(0.1*zSnow)+10**(0.1*zRain))
+    attRain=np.exp(att_rain[0]*np.log(rainRate+1e-3)+att_rain[1])
+    attTot=(attSnow+attRain)*2*dr
+    pia=attTot[::-1].cumsum()[::-1]
+    #zTot[zTot<0]=0
+    zTot-=pia
+    zL.append(zTot)
+
+plt.figure()
+plt.plot(zKa_true.mean(axis=0)[:120],h[:120])
+plt.plot(np.array(zL).mean(axis=0)[:120],h[:120])
+
+
+from sklearn.model_selection import train_test_split
+
+ind=range(zKa.shape[0])
+ind_train, ind_test, \
+    y_train, y_test \
+    = train_test_split(ind, pRate[:,0], \
+                       test_size=0.15, random_state=42)
+
+stop
 from sklearn.model_selection import train_test_split
 
 ind=range(zKa.shape[0])
