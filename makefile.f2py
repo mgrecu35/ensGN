@@ -82,7 +82,7 @@ OBJEXE	=    $(OBJ)  src_f90/mainfpy.f90
 combAlg:	$(OBJEXE) 
 		f2py -c -m combAlg --f90flags="-fopenmp" --arch="-fopenmp"\
 		fobjective.f90 src_f90/mainfpy.f90 hbprof_new.f90 \
-		src_f90/bisection.f90  forwardModel.f90 src_f90/emissivity-sp.f src_f90/radtran_tau_dble.f src_f90/rosen.f multiscatter.f90\
+		src_f90/bisection.f90  simpleFModel.f90 forwardModel.f90 src_f90/emissivity-sp.f src_f90/radtran_tau_dble.f src_f90/rosen.f multiscatter.f90\
                 absorption3D.f90 $(OBJ)  $(LIB) $(LIBES) -lstdc++ 
 
 #---Auxiliary Functions
